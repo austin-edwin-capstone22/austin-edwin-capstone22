@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+#Austin Andres and Edwin Zerwekh
+#Capstone
 #This script combines our code and our devices, such that we only have to run one line from the command line to execute our program
 
 import time,re,datetime,sys,argparse,os,csv
