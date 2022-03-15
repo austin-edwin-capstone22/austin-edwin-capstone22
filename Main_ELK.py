@@ -1,8 +1,13 @@
+#!/usr/bin/python
+
+#Base code from https://github.com/Techryptic/BLE-APT/blob/main/Main.py
+#Program is run via script. See script_ELK.py for syntax on running it
 import time,re,datetime,sys,argparse,os,csv
 import mysql.connector
 from getpass import getpass
 from mysql.connector import connect, Error
 
+#Program allows us to use live input or retroactively examine an already creted PCAP file
 def follow(live_log, input_or_live):
 
     if "input" in input_or_live:
@@ -25,6 +30,11 @@ def follow(live_log, input_or_live):
 if __name__ == '__main__':
     
     try:
+        '''
+        Database that contains the pattern of life of our targeted device.
+        You can modify this program to create a pattern of life for any device.
+        Then put the pattern of life into a database, similarly to what is shown below.
+        '''
         with connect(host="localhost",user="Zeus97",password="Capstone22!",database="elk_model") as connection:
             print(connection)
         connection = mysql.connector.connect(host="localhost",user="Zeus97",password="Capstone22!",database="elk_model")
@@ -92,7 +102,7 @@ if __name__ == '__main__':
         BLE_COMMAND = False 
         
 
-        DEBUG = 0 #0 = off, 1 = on, prints all variables with \n
+        DEBUG = 0 #0 = off, 1 = on, prints all variables with \n (Beware.. lots of output)
 
         if DEBUG:
             print("Line Number - {}".format(line_num))
@@ -129,7 +139,9 @@ if __name__ == '__main__':
 
         if "UNKNOWN Data:" in sl: #Remove all malformed packets
             continue
+            
         '''
+        Commented out while looking at connection packets. Uncomment for advertising only
         if (sl_len < 220): #Half written packets, no good anyways. grep -x '.\{1,200\}' -n
             continue
         '''
@@ -137,12 +149,12 @@ if __name__ == '__main__':
         ######################
 
         '''
-        #Dropping all data packets for now.
-        matches = ["LL_FEATURE_REQ", "L2CAP", "LL Control PDU"]
+        #Dropping all data packets for now if we are just looking at advertising packets...
+        matches = ["LL_FEATURE_REQ", "L2CAP", "LL Control PDU"] -> means we are looking at an established connection
         if any([substring in sl for substring in matches]):
             continue
         '''
-        if 1 != 1:
+        if 1 != 1: #Replace this if statement with the one above if you just want to look at advertising packets
             continue
         else:
             try:
@@ -163,7 +175,7 @@ if __name__ == '__main__':
                 freq=''
             
             try:
-                addr = re.findall('addr=(.*?) delta_t=',sl) #The AccessAddress property defines the 32-bit unique connection address between two devices. The default value is '8E89BED6'.
+                addr = re.findall('addr=(.*?) delta_t=',sl) 
                 addr = str(addr[0])
                 if DEBUG:
                     print(addr)
@@ -171,6 +183,7 @@ if __name__ == '__main__':
                 addr=''
 
             try:
+                #The AccessAddress property defines the 32-bit unique connection address between two devices. The default value is '8E89BED6'.
                 delta_t = re.findall('delta_t=(.*?) ms rssi=',sl)
                 delta_t = str(delta_t[0])
                 if DEBUG:
@@ -206,7 +219,6 @@ if __name__ == '__main__':
                 try:
                     #print(sl)
                     #LLID_type = re.findall('LLID: (.*?) 1' ,sl)
-                    #print(LLID_type + " HERE \n")
                     #LLID_type = int(str(pdu_type[0]))
                     if "LLID: 1" in sl:
                         pdu_type = "Empty_PDU" # also known as acknowledges packet, if the peripheral device has « 0x1 » ( our case ) as value, he will reply to every connection event packet sent from the Central device at every connection interval. The type LLID 0x1 may signify whether it is an empty PDU or it is a continuation fragment of L2CAP packets.
@@ -224,7 +236,8 @@ if __name__ == '__main__':
                     LLID_type=''
 
                 if pdu_type == "Data_PDU":
-                    try: 
+                    try:
+                        #Data parsing of a command. This is an important segment of the pattern of life of a device while it is connected to its master.
                         BLE_COMMAND = True
                         split_sl=str((sl.split("Data: ", 1))[1])
                         split_crc = split_sl.split("CRC:",1)
@@ -582,6 +595,9 @@ if __name__ == '__main__':
                 command_data_anomly = False
                 valid_command = False
                 #anomaly.write("{}\n".format(anomaly_form))
+                '''
+                Checking data against the already established pattern of life
+                '''
                 select_movies_query = "SELECT * FROM model_BLE_connection"
                 opcode_list =[]
                 command_data_list = []
@@ -594,6 +610,7 @@ if __name__ == '__main__':
                         else:
                             opcode_list.append(row[3])
                             command_data_list.append(row[5])
+                            
                 if valid_command:
                     continue
                 if command_OPCODE not in opcode_list:
@@ -605,7 +622,7 @@ if __name__ == '__main__':
                 if command_data_anomly or opcode_anomaly:
                     print("Logging Anomaly...\n")
                     fout.write("{}\n".format(all))
-                else:
+                else: #Catch all. Not sure what happened, but it does not matach pattern of life. Log and examine PCAP
                     print("Anomaly Detected: unknown sequence: " + all)
                     print("Logging Anomaly...\n")
                     fout.write("{}\n".format(all))
@@ -617,8 +634,12 @@ if __name__ == '__main__':
             #check = time.time()
             #print(check)
             continue
-
-
+        
+        
+        
+        '''
+        Advertising packets
+        '''
         # Joining everything up in one CSV line before plotting..    
         first_part = date,freq,addr,delta_t,rssi,channel #every packet will have this
         pdu_part =   pdu_type,AdvA,data_flags,InitA,ScanA #Some packets will have either data_flags,InitA,ScanA
@@ -633,7 +654,7 @@ if __name__ == '__main__':
                 print("Anomaly Detected: Delta T, too fast: " + delta_t.strip() +" ms")
                 print("Logging Anomaly...\n")
                 fout.write("{}\n".format(all))
-            elif pdu_type == "CONNECT_REQ":
+            elif pdu_type == "CONNECT_REQ": #Log everytime our device connects to a master
                 print("Connection Established. Device Name: " + LOCAL_NAME.strip())
                 print(all)
                 print("Logging this event...\n")
@@ -645,6 +666,11 @@ if __name__ == '__main__':
                 RSSI =0
                 continue
             elif abs(float(rssi.strip()) - float(RSSI))  > 25 : #14
+                '''
+                This will change based off of your device. Ubertooth is not precise enough to accurately detect this.
+                If you are concerned about this type of attack, lower the number.
+                This may inquire false positives, but atleast it will log it all.
+                '''
                 print("Anomaly Detected: RSSI Changed Drastically, Device moved or Possible Spoofing attack")
                 print(RSSI)
                 print(rssi)
@@ -673,6 +699,6 @@ if __name__ == '__main__':
         if DEBUG:
             print("\n")
 if input_or_live == "input":
-   print("Finished!")
+   print("Finished!") #DONE
    print("Output Written to: {}".format(output))
 
