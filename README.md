@@ -1,4 +1,5 @@
-This repository will hold our code, paper, demonstration, and additional information about our USNA Capstone.  Capstone: Pattern-of-life Analysis and Deviations for Bluetooth and Bluetooth Low Energy Devices.</br>
+This repository will hold our code, paper, demonstration, and additional information about our USNA Capstone. 
+</br>Capstone: Pattern-of-life Analysis and Deviations for Bluetooth and Bluetooth Low Energy Devices.</br>
 Here is the Demo Video:</br>
 
 
