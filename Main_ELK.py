@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #Austin Andres and Edwin Zerwekh
 #Capstone
-
-
 #Base code from https://github.com/Techryptic/BLE-APT/blob/main/Main.py
 #Program is run via script. See script_ELK.py for syntax on running it
 import time,re,datetime,sys,argparse,os,csv
